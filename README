@@ -1,0 +1,50 @@
+gitweb_auth
+http://github.com/relevante/gitweb_auth
+
+James N. Sears
+http://jamesnsears.com/
+
+
+gitweb_auth is a patch for gitweb that, in conjunction with Apache basic auth
+provides user/project-level access control based on the writable permissions
+set in gitosis.conf.
+
+At the moment, only the writable parameter in gitosis.conf is used and there is 
+no mechanism in place to allow for a globally readable repository, or a repository
+that can be read by a gitweb user but not written by a gitosis user, but this
+functionality can be easily added.
+
+
+=== INSTALLATION ===
+Get a basic gitweb installation working, with Apache basic auth configured.  I 
+found this howto to be very clear and helpful in configuring my installation:
+
+  http://scie.nti.st/2007/11/14/hosting-git-repositories-the-easy-and-secure-way
+
+Once you have gitweb running behind Apache basic auth, simply replace gitweb.cgi
+with this version (or patch your existing version), and add the following parameter
+to your gitweb.conf file (usually found at /etc/gitweb.conf):
+
+  # path to active gitosis.conf 
+  $gitosis_conf = "/var/git/repositories/gitosis-admin.git/gitosis.conf";
+
+obviously replacing that path with the actual path to your gitosis.conf.
+
+Any users who are members of a group with 'writable' assigned to a particular 
+repository will be granted access, otherwise they are denied.
+
+
+=== HOW IT WORKS ===
+Very simply.  I looked for every place where the existing $export_ok variable was
+being used to check repository permissions and added a call to a new subroutine 
+called has_permissions.  This subroutine performs a rudimentary parse of 
+gitosis.conf.  If it finds a group that matches both the user and project, it
+returns 1, otherwise it returns 0.
+
+I also added into the HTML generation a div with id 'user_info' in the page header
+that prints the text 'Welcome, $username'.  This is created by the subroutine 
+user_info and can be easily customized to your liking.
+
+
+Enjoy.
+

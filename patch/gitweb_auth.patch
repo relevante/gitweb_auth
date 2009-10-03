@@ -1,0 +1,129 @@
+*** gitweb_stock.cgi	2009-10-03 13:17:26.676351441 -0400
+--- gitweb.cgi	2009-10-03 13:56:24.709692481 -0400
+***************
+*** 27,32 ****
+--- 27,37 ----
+  our $my_url = $cgi->url();
+  our $my_uri = $cgi->url(-absolute => 1);
+  
++ # Path to gitosis.conf for permissions info
++ our $gitosis_conf = "";
++ 
++ our $username = $cgi->remote_user;
++ 
+  # core git executable to use
+  # this can just be "git" if your webserver has a sensible PATH
+  our $GIT = "/usr/bin/git";
+***************
+*** 277,282 ****
+--- 282,319 ----
+  		'default' => [0]},
+  );
+  
++ 
++ # functions added by gitweb-auth
++ sub user_info {
++   return "<div style='float:right;margin-right:1em;' id='user_info'>Welcome, $username</div>";
++ }
++ 
++ sub has_permissions {
++   my $projectdir = shift;
++   if($projectdir =~ (/(.*?)\.git/)) {
++     my $projectname = $1;
++     
++     open FILE, $gitosis_conf or die 'Could not open gitosis config file. Please make sure that $gitosis_conf is set properly';
++     my $project_match = 0;
++     my $user_match = 0;
++     while(<FILE>) {
++       if($_ =~ /^\s*members\s*\=\s*(?:.*?\s)*$username(?:\s+|$)/) {$user_match = 1;}
++       if($_ =~ /^\s*writable\s*\=\s*(?:.*?\s)*$projectname(?:\s+|$)/) {$project_match = 1;}
++       if($_ =~ /\[group/) {
++         if($project_match && $user_match) {
++           return 1;
++         } else {
++           $project_match = $user_match = 0;
++         }
++       } 
++     }
++   }
++   return 0;
++ }
++ 
++ 
++ # end functions added by gitweb-auth
++ 
+  sub gitweb_check_feature {
+  	my ($name) = @_;
+  	return unless exists $feature{$name};
+***************
+*** 397,402 ****
+--- 434,440 ----
+  	    !(-d "$projectroot/$project") ||
+  	    !check_head_link("$projectroot/$project") ||
+  	    ($export_ok && !(-e "$projectroot/$project/$export_ok")) ||
++             !has_permissions($project) ||
+  	    ($strict_export && !project_in_list($project))) {
+  		undef $project;
+  		die_error(undef, "No such project");
+***************
+*** 505,510 ****
+--- 543,549 ----
+  	$project = validate_pathname($project);
+  	if (!$project ||
+  	    ($export_ok && !-e "$projectroot/$project/$export_ok") ||
++             !has_permissions($project) ||
+  	    ($strict_export && !project_in_list($project))) {
+  		undef $project;
+  		return;
+***************
+*** 1774,1780 ****
+  				# we check related file in $projectroot
+  				if ($check_forks and $subdir =~ m#/.#) {
+  					$File::Find::prune = 1;
+! 				} elsif (check_export_ok("$projectroot/$filter/$subdir")) {
+  					push @list, { path => ($filter ? "$filter/" : '') . $subdir };
+  					$File::Find::prune = 1;
+  				}
+--- 1813,1819 ----
+  				# we check related file in $projectroot
+  				if ($check_forks and $subdir =~ m#/.#) {
+  					$File::Find::prune = 1;
+! 				} elsif (has_permissions($subdir) && check_export_ok("$projectroot/$filter/$subdir")) {
+  					push @list, { path => ($filter ? "$filter/" : '') . $subdir };
+  					$File::Find::prune = 1;
+  				}
+***************
+*** 1824,1830 ****
+  					next PROJECT;
+  				}
+  			}
+! 			if (check_export_ok("$projectroot/$path")) {
+  				my $pr = {
+  					path => $path,
+  					owner => to_utf8($owner),
+--- 1863,1869 ----
+  					next PROJECT;
+  				}
+  			}
+! 			if (has_permissions($path) && check_export_ok("$projectroot/$path")) {
+  				my $pr = {
+  					path => $path,
+  					owner => to_utf8($owner),
+***************
+*** 2582,2588 ****
+  	print "<div class=\"page_header\">\n" .
+  	      $cgi->a({-href => esc_url($logo_url),
+  	               -title => $logo_label},
+! 	              qq(<img src="$logo" width="72" height="27" alt="git" class="logo"/>));
+  	print $cgi->a({-href => esc_url($home_link)}, $home_link_str) . " / ";
+  	if (defined $project) {
+  		print $cgi->a({-href => href(action=>"summary")}, esc_html($project));
+--- 2621,2628 ----
+  	print "<div class=\"page_header\">\n" .
+  	      $cgi->a({-href => esc_url($logo_url),
+  	               -title => $logo_label},
+! 	              qq(<img src="$logo" width="72" height="27" alt="git" class="logo"/>)) .
+!               user_info();
+  	print $cgi->a({-href => esc_url($home_link)}, $home_link_str) . " / ";
+  	if (defined $project) {
+  		print $cgi->a({-href => href(action=>"summary")}, esc_html($project));
